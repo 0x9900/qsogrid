@@ -9,7 +9,7 @@ qsogrid -a ~/tmp/fred.adi -o ./misc/W6BSD-Grid.png -c W6BSD
 ![Example](misc/W6BSD-Grid.png)
 
 ```
-usage: qsogrid.py [-h] -a ADIF_FILE -o OUTPUT -c CALL [-t TITLE] [-d DPI]
+usage: qsogrid [-h] -a ADIF_FILE -o OUTPUT -c CALL [-t TITLE] [-d DPI]
 
 Maidenhead gridsquare map
 

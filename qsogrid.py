@@ -21,7 +21,11 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 from adif_parser import ParseADIF
-from matplotlib.patches import Rectangle
+from shapely.geometry import box
+from shapely.ops import unary_union
+
+Rectangle = Tuple[float, float, float, float]  # (lon_min, lat_min, lon_max, lat_max)
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -46,7 +50,7 @@ class MaidenheadConverter:
     return (grid[0:2].isalpha() and grid[2:4].isdigit())
 
   @staticmethod
-  def to_coordinates(grid: str) -> Tuple[float, float, float, float]:
+  def to_coordinates(grid: str) -> Rectangle:
     grid = grid.upper()
 
     # Longitude calculation
@@ -65,13 +69,14 @@ class MaidenheadConverter:
 class GridMapGenerator:
   def __init__(self, figsize: Tuple[int, int] = (20, 10)):
     self.figsize = figsize
-    self.fig = None
+    self.fig: plt.Figure | None = None
     self.ax = None
 
   def create_base_map(self) -> Tuple[plt.Figure, plt.Axes]:
     self.fig = plt.figure(figsize=self.figsize)
     # self.ax = self.fig.add_subplot(111, projection=ccrs.PlateCarree())
     self.ax = self.fig.add_subplot(111, projection=ccrs.Robinson())
+    assert self.ax is not None
 
     self.ax.set_global()
     self.ax.add_feature(cfeature.LAND, facecolor='lightgreen', alpha=0.2)
@@ -87,7 +92,8 @@ class GridMapGenerator:
 
     return self.fig, self.ax
 
-  def _draw_grid_lines(self):
+  def _draw_grid_lines(self) -> None:
+    assert self.ax is not None
     for lon in range(-180, 181, FIELD_LON_STEP):
       self.ax.plot([lon, lon], [-90, 90], color='blue', linewidth=0.75,
                    alpha=0.5, transform=ccrs.PlateCarree())
@@ -115,29 +121,28 @@ class GridMapGenerator:
       self.ax.plot([-180, 180], [lat, lat], color='grey', linewidth=0.3,
                    alpha=0.5, transform=ccrs.PlateCarree())
 
-  def highlight_grids(self, grids: Set[str], color: str = '#880000', alpha: float = 0.7):
+  def highlight_grids(self, grids: Set[str], color: str = '#880000') -> None:
+    assert self.ax is not None
     converter = MaidenheadConverter()
 
+    geoms = []
     for grid in grids:
-      if not converter.validate(grid):
-        logger.warning("Invalid grid square '%s' skipped", grid)
-        continue
+        if not converter.validate(grid):
+            logger.warning("Invalid grid square '%s' skipped", grid)
+            continue
+        lon_min, lon_max, lat_min, lat_max = converter.to_coordinates(grid)
+        geoms.append(box(lon_min, lat_min, lon_max, lat_max))
 
-      lon_min, lon_max, lat_min, lat_max = converter.to_coordinates(grid)
+    if geoms:
+        merged = unary_union(geoms)
+        self.ax.add_geometries(merged, crs=ccrs.PlateCarree(), facecolor=color,
+                               edgecolor=None, alpha=0.6, zorder=20)
 
-      # Create rectangle patch
-      width = lon_max - lon_min
-      height = lat_max - lat_min
-      rect = Rectangle((lon_min, lat_min), width, height,
-                       facecolor=color, alpha=alpha, zorder=10,
-                       transform=ccrs.PlateCarree())
-      self.ax.add_patch(rect)
-
-  def save(self, call: str, title: str, filename: str, dpi: int = 300):
+  def save(self, call: str, title: str, filename: str, dpi: int = 300) -> None:
+    assert self.ax is not None
     year = datetime.now().year
     # Set title
-    self.ax.set_title(f'{call} - {title}',
-                      fontsize=16, weight='bold', pad=20)
+    self.ax.set_title(f'{call} - {title}', fontsize=16, weight='bold', pad=20)
 
     if self.fig is None:
       raise ValueError("No map created. Call create_base_map() first.")
