@@ -47,3 +47,6 @@ dev = [
     "pre-commit",
     "pylint",
 ]
+
+[tool.mypy]
+ignore_missing_imports = true
