@@ -76,7 +76,7 @@ class GridMapGenerator:
     self.fig = plt.figure(figsize=self.figsize)
     # self.ax = self.fig.add_subplot(111, projection=ccrs.PlateCarree())
     self.ax = self.fig.add_subplot(111, projection=ccrs.Robinson())
-    assert self.ax is not None
+    assert self.ax
 
     self.ax.set_global()
     self.ax.add_feature(cfeature.LAND, facecolor='lightgreen', alpha=0.2)
@@ -86,6 +86,7 @@ class GridMapGenerator:
 
     # Add grid lines
     self._draw_grid_lines()
+    self._draw_fine_grid()
 
     self.ax.set_xlabel('Longitude', fontsize=12)
     self.ax.set_ylabel('Latitude', fontsize=12)
@@ -93,7 +94,7 @@ class GridMapGenerator:
     return self.fig, self.ax
 
   def _draw_grid_lines(self) -> None:
-    assert self.ax is not None
+    assert self.ax
     for lon in range(-180, 181, FIELD_LON_STEP):
       self.ax.plot([lon, lon], [-90, 90], color='blue', linewidth=0.75,
                    alpha=0.5, transform=ccrs.PlateCarree())
@@ -104,7 +105,8 @@ class GridMapGenerator:
                      transform=ccrs.PlateCarree())
 
     for lat in range(-90, 91, FIELD_LAT_STEP):
-      self.ax.plot([-180, 180], [lat, lat], color='blue', linewidth=0.75,
+      self.ax.plot([-180, 180], [lat, lat], color='blue',
+                   linewidth=1.5 if lat == 0 else 0.75,
                    alpha=0.5, transform=ccrs.PlateCarree())
       # Skip the top one to avoid overlap
       if lat != 90:
@@ -112,7 +114,8 @@ class GridMapGenerator:
                      fontsize=8, color='black', alpha=0.8,
                      transform=ccrs.PlateCarree())
 
-    # thin lines
+  def _draw_fine_grid(self) -> None:
+    assert self.ax
     for lon in range(-180, 181, SQUARE_LON_STEP):
       self.ax.plot([lon, lon], [-90, 90], color='grey', linewidth=0.3,
                    alpha=0.5, transform=ccrs.PlateCarree())
@@ -122,7 +125,7 @@ class GridMapGenerator:
                    alpha=0.5, transform=ccrs.PlateCarree())
 
   def highlight_grids(self, grids: Set[str], color: str = '#880000') -> None:
-    assert self.ax is not None
+    assert self.ax
     converter = MaidenheadConverter()
 
     geoms = []
@@ -139,7 +142,7 @@ class GridMapGenerator:
                                edgecolor=None, alpha=0.6, zorder=20)
 
   def save(self, call: str, title: str, filename: str, dpi: int = 300) -> None:
-    assert self.ax is not None
+    assert self.ax
     year = datetime.now().year
     # Set title
     self.ax.set_title(f'{call} - {title}', fontsize=16, weight='bold', pad=20)
