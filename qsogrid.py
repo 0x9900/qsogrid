@@ -72,10 +72,10 @@ class GridMapGenerator:
     self.fig: plt.Figure | None = None
     self.ax = None
 
-  def create_base_map(self) -> Tuple[plt.Figure, plt.Axes]:
+  def create_base_map(self, lon: int = 0) -> Tuple[plt.Figure, plt.Axes]:
     self.fig = plt.figure(figsize=self.figsize)
     # self.ax = self.fig.add_subplot(111, projection=ccrs.PlateCarree())
-    self.ax = self.fig.add_subplot(111, projection=ccrs.Robinson())
+    self.ax = self.fig.add_subplot(111, projection=ccrs.Robinson(central_longitude=lon))
     assert self.ax
 
     self.ax.set_global()
@@ -186,6 +186,8 @@ def main():
                       help='Title of the map')
   parser.add_argument('-d', '--dpi', type=int, default=100,
                       help='Image resolution')
+  parser.add_argument('-l', '--longitude', type=int, default=0,
+                      help='Center the map around a specific longitude (default %(default)s)')
   opts = parser.parse_args()
   call = opts.call.upper()
 
@@ -194,7 +196,7 @@ def main():
 
   # Generate map
   generator = GridMapGenerator(figsize=(20, 10))
-  generator.create_base_map()
+  generator.create_base_map(opts.longitude)
 
   # Highlight worked grids
   generator.highlight_grids(grids)

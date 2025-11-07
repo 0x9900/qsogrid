@@ -27,6 +27,7 @@ Run `qsogrid` from your terminal, providing the required log file, output path, 
 
 ```
 usage: qsogrid [-h] -a ADIF_FILE -o OUTPUT -c CALL [-t TITLE] [-d DPI]
+               [-l LONGITUDE]
 
 Maidenhead gridsquare map
 
@@ -40,7 +41,8 @@ options:
   -t TITLE, --title TITLE
                         Title of the map
   -d DPI, --dpi DPI     Image resolution
-
+  -l LONGITUDE, --longitude LONGITUDE
+                        Center the map around a specific longitude (default 0)
 ```
 
 ### Example
