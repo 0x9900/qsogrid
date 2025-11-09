@@ -126,14 +126,13 @@ class GridMapGenerator:
 
   def highlight_grids(self, grids: Set[str], color: str = '#880000') -> None:
     assert self.ax
-    converter = MaidenheadConverter()
 
     geoms = []
     for grid in grids:
-        if not converter.validate(grid):
+        if not MaidenheadConverter.validate(grid):
             logger.warning("Invalid grid square '%s' skipped", grid)
             continue
-        lon_min, lon_max, lat_min, lat_max = converter.to_coordinates(grid)
+        lon_min, lon_max, lat_min, lat_max = MaidenheadConverter.to_coordinates(grid)
         geoms.append(box(lon_min, lat_min, lon_max, lat_max))
 
     if geoms:
@@ -168,7 +167,10 @@ def extract_grids_from_adif(filepath: Path) -> Set[str]:
     if grid := qso.get('GRIDSQUARE'):
       # Extract first 4 characters
       grid = grid[:GRID_LENGTH].upper()
-      grids.add(grid)
+      if MaidenheadConverter.validate(grid):
+        grids.add(grid)
+      else:
+        logger.warning("Invalid grid square '%s' for %s skipped", grid, qso['CALL'])
 
   logger.info("Extracted %d unique grid squares from %s", len(grids), filepath.name)
   return grids
