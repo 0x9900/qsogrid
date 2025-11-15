@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "qsogrid"
-version = "0.1.5"
+dynamic = ["version"]
 description = "QSO into a Maidenhead grid"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -37,6 +37,9 @@ qsogrid = "qsogrid:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["qsogrid.py"]
+
+[tool.hatch.version]
+path = "qsogrid.py"
 
 [project.optional-dependencies]
 dev = [

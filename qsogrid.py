@@ -11,6 +11,8 @@ Maidenhead Grid Square Visualization Tool
 Generates a map showing worked grid squares from ADIF ham radio logs.
 """
 
+__version__ = "0.1.6"
+
 import argparse
 import logging
 from datetime import datetime
@@ -189,6 +191,8 @@ def main():
                       help='Image resolution')
   parser.add_argument('-l', '--longitude', type=int, default=0,
                       help='Center the map around a specific longitude (default %(default)s)')
+  parser.add_argument('-v', '--version', action='version', version=__version__)
+
   opts = parser.parse_args()
   call = opts.call.upper()
 
