@@ -74,7 +74,6 @@ class GridMapGenerator:
 
   def create_base_map(self, lon: int = 0) -> Tuple[plt.Figure, plt.Axes]:
     self.fig = plt.figure(figsize=self.figsize)
-    # self.ax = self.fig.add_subplot(111, projection=ccrs.PlateCarree())
     self.ax = self.fig.add_subplot(111, projection=ccrs.Robinson(central_longitude=lon))
     assert self.ax
 
@@ -126,7 +125,6 @@ class GridMapGenerator:
 
   def highlight_grids(self, grids: Set[str], color: str = '#880000') -> None:
     assert self.ax
-
     geoms = []
     for grid in grids:
         if not MaidenheadConverter.validate(grid):
@@ -149,7 +147,8 @@ class GridMapGenerator:
     if self.fig is None:
       raise ValueError("No map created. Call create_base_map() first.")
 
-    self.fig.text(.13, .09, SIGNATURE.format(year, call), fontsize=10, color='gray')
+    self.fig.text(.13, .09, SIGNATURE.format(year, call), fontsize=8, color='gray')
+    self.fig.text(.13, .11, 'Map source Natural Earth',  fontsize=8, color='gray')
     self.fig.savefig(filename, dpi=dpi, bbox_inches='tight', pad_inches=0.6)
     logger.info("Map saved as '%s'", filename)
 
