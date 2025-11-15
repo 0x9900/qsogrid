@@ -11,7 +11,7 @@ Maidenhead Grid Square Visualization Tool
 Generates a map showing worked grid squares from ADIF ham radio logs.
 """
 
-__version__ = "0.1.6"
+__version__ = "0.1.7"
 
 import argparse
 import logging

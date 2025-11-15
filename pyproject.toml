@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [
-    {name = "Your Name", email = "github-fred@hidzz.com"}
+    {name = "Fred C.", email = "github-fred@hidzz.com"}
 ]
 keywords = ["ham radio", "qso", "grid", "adif"]
 classifiers = [
