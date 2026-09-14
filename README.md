@@ -57,7 +57,7 @@ qsogrid -a ~/tmp/fred.adi -o ./misc/W6BSD-Grid.png -c W6BSD -t "Worked Grids"
 
 The generated output is a visual representation of the Maidenhead grid squares worked, based on the `GRIDSQUARE` field in your ADIF log.
 
-![Example](https://bsdworld.org/misc/W6BSD-Grid.svgz)
+![Example](https://bsdworld.org/misc/W6BSD/W6BSD-Grid.svgz)
 
 ### License
 
