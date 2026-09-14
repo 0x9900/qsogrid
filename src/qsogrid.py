@@ -22,9 +22,11 @@ from typing import Set, Tuple
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
+import numpy as np
 from adif_parser import ParseADIF
 from geo_ham import Rectangle, grid2rectangle
-from shapely.geometry import box
+from matplotlib.collections import LineCollection
+from shapely import box
 from shapely.ops import unary_union
 
 # Configure logging
@@ -70,7 +72,6 @@ class GridMapGenerator:
     self.ax.add_feature(cfeature.COASTLINE, linewidth=1.25, edgecolor='maroon')
     self.ax.add_feature(cfeature.BORDERS, linewidth=0.75, edgecolor='gray')
 
-    # Add grid lines
     self._draw_grid_lines()
     self._draw_fine_grid()
 
@@ -79,51 +80,86 @@ class GridMapGenerator:
 
     return self.fig, self.ax
 
+  @staticmethod
+  def _meridian_segments(lons: np.ndarray, n_samples: int = 91) -> np.ndarray:
+    """Build (n_lons, n_samples, 2) array of densely-sampled meridians."""
+    lats = np.linspace(-90, 90, n_samples)
+    segs = np.empty((len(lons), n_samples, 2))
+    segs[:, :, 0] = lons[:, None]
+    segs[:, :, 1] = lats[None, :]
+    return segs
+
+  @staticmethod
+  def _parallel_segments(lats: np.ndarray, n_samples: int = 2) -> np.ndarray:
+    """Build (n_lats, n_samples, 2) array of parallels."""
+    lons = np.linspace(-180, 180, n_samples)
+    segs = np.empty((len(lats), n_samples, 2))
+    segs[:, :, 0] = lons[None, :]
+    segs[:, :, 1] = lats[:, None]
+    return segs
+
   def _draw_grid_lines(self) -> None:
     assert self.ax
-    for lon in range(-180, 181, FIELD_LON_STEP):
-      self.ax.plot([lon, lon], [-90, 90], color='blue', linewidth=0.75,
-                   alpha=0.5, transform=ccrs.PlateCarree())
+    lons = np.arange(-180, 181, FIELD_LON_STEP)
+    lats = np.arange(-90, 91, FIELD_LAT_STEP)
+
+    meridians = self._meridian_segments(lons)
+    lc = LineCollection(meridians, colors='blue', linewidths=0.75,
+                        alpha=0.5, transform=ccrs.PlateCarree())
+    self.ax.add_collection(lc)
+
+    parallels = self._parallel_segments(lats)
+    linewidths = np.where(lats == 0, 1.5, 0.75)
+    lc = LineCollection(parallels, colors='blue', linewidths=linewidths,
+                        alpha=0.5, transform=ccrs.PlateCarree())
+    self.ax.add_collection(lc)
+
+    for lon_val in lons:
       # Skip the last one to avoid overlap
-      if lon != 180:
-        self.ax.text(lon, 92, f'{lon}°', ha='center', va='bottom',
+      if lon_val != 180:
+        self.ax.text(lon_val, 92, f'{lon_val}°', ha='center', va='bottom',
                      fontsize=8, color='black', alpha=0.8,
                      transform=ccrs.PlateCarree())
 
-    for lat in range(-90, 91, FIELD_LAT_STEP):
-      self.ax.plot([-180, 180], [lat, lat], color='blue',
-                   linewidth=1.5 if lat == 0 else 0.75,
-                   alpha=0.5, transform=ccrs.PlateCarree())
+    for lat_val in lats:
       # Skip the top one to avoid overlap
-      if lat != 90:
-        self.ax.text(-182, lat + 2, f'{lat}°', ha='right', va='center',
+      if lat_val != 90:
+        self.ax.text(-182, lat_val + 2, f'{lat_val}°', ha='right', va='center',
                      fontsize=8, color='black', alpha=0.8,
                      transform=ccrs.PlateCarree())
 
   def _draw_fine_grid(self) -> None:
     assert self.ax
-    for lon in range(-180, 181, SQUARE_LON_STEP):
-      self.ax.plot([lon, lon], [-90, 90], color='grey', linewidth=0.3,
-                   alpha=0.5, transform=ccrs.PlateCarree())
+    lons = np.arange(-180, 181, SQUARE_LON_STEP)
+    lats = np.arange(-90, 91, SQUARE_LAT_STEP)
 
-    for lat in range(-90, 91, SQUARE_LAT_STEP):
-      self.ax.plot([-180, 180], [lat, lat], color='grey', linewidth=0.3,
-                   alpha=0.5, transform=ccrs.PlateCarree())
+    meridians = self._meridian_segments(lons)
+    lc = LineCollection(meridians, colors='grey', linewidths=0.3,
+                        alpha=0.5, transform=ccrs.PlateCarree())
+    self.ax.add_collection(lc)
+
+    parallels = self._parallel_segments(lats)
+    lc = LineCollection(parallels, colors='grey', linewidths=0.3,
+                        alpha=0.5, transform=ccrs.PlateCarree())
+    self.ax.add_collection(lc)
 
   def highlight_grids(self, grids: Set[str], color: str = '#880000') -> None:
     assert self.ax
-    geoms = []
-    for grid in grids:
-        if not MaidenheadConverter.validate(grid):
-            logger.warning("Invalid grid square '%s' skipped", grid)
-            continue
-        rect = MaidenheadConverter.to_coordinates(grid)
-        geoms.append(box(rect.lon_min, rect.lat_min, rect.lon_max, rect.lat_max))
+    valid = [g for g in grids if MaidenheadConverter.validate(g)]
+    for g in grids - set(valid):
+      logger.warning("Invalid grid square '%s' skipped", g)
 
-    if geoms:
-        merged = unary_union(geoms)
-        self.ax.add_geometries(merged, crs=ccrs.PlateCarree(), facecolor=color,
-                               edgecolor=None, alpha=0.6, zorder=20)
+    if not valid:
+      return
+
+    rects = [MaidenheadConverter.to_coordinates(g) for g in valid]
+    bounds = np.array([(r.lon_min, r.lat_min, r.lon_max, r.lat_max) for r in rects])
+
+    geoms = box(bounds[:, 0], bounds[:, 1], bounds[:, 2], bounds[:, 3])
+    merged = unary_union(geoms)
+
+    self.ax.add_geometries(merged, crs=ccrs.PlateCarree(), facecolor=color,
+                           edgecolor=None, alpha=0.6, zorder=20)
 
   def save(self, call: str, title: str, filename: str, dpi: int = 300) -> None:
     assert self.ax
@@ -150,7 +186,7 @@ def extract_grids_from_adif(filepath: Path) -> Set[str]:
 
   grids = set()
   for qso in adif.contacts:
-    if grid := qso.get('GRIDSQUARE'):
+    if (grid := qso.get('GRIDSQUARE')) and isinstance(grid, str):
       # Extract first 4 characters
       grid = grid[:GRID_LENGTH].upper()
       if MaidenheadConverter.validate(grid):
