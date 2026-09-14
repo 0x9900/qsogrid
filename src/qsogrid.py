@@ -23,17 +23,14 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 from adif_parser import ParseADIF
+from geo_ham import Rectangle, grid2rectangle
 from shapely.geometry import box
 from shapely.ops import unary_union
-
-Rectangle = Tuple[float, float, float, float]  # (lon_min, lat_min, lon_max, lat_max)
-
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-# Constants
 FIELD_LON_STEP = 20  # degrees
 FIELD_LAT_STEP = 10  # degrees
 SQUARE_LON_STEP = 2  # degrees
@@ -53,19 +50,7 @@ class MaidenheadConverter:
 
   @staticmethod
   def to_coordinates(grid: str) -> Rectangle:
-    grid = grid.upper()
-
-    # Longitude calculation
-    lon_field = (ord(grid[0]) - ord('A')) * FIELD_LON_STEP
-    lon_min = -180 + lon_field + int(grid[2]) * SQUARE_LON_STEP
-    lon_max = lon_min + SQUARE_LON_STEP
-
-    # Latitude calculation
-    lat_field = (ord(grid[1]) - ord('A')) * FIELD_LAT_STEP
-    lat_min = -90 + lat_field + int(grid[3]) * SQUARE_LAT_STEP
-    lat_max = lat_min + SQUARE_LAT_STEP
-
-    return lon_min, lon_max, lat_min, lat_max
+    return grid2rectangle(grid)
 
 
 class GridMapGenerator:
@@ -132,8 +117,8 @@ class GridMapGenerator:
         if not MaidenheadConverter.validate(grid):
             logger.warning("Invalid grid square '%s' skipped", grid)
             continue
-        lon_min, lon_max, lat_min, lat_max = MaidenheadConverter.to_coordinates(grid)
-        geoms.append(box(lon_min, lat_min, lon_max, lat_max))
+        rect = MaidenheadConverter.to_coordinates(grid)
+        geoms.append(box(rect.lon_min, rect.lat_min, rect.lon_max, rect.lat_max))
 
     if geoms:
         merged = unary_union(geoms)

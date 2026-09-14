@@ -25,7 +25,7 @@ classifiers = [
 dependencies = [
     "cartopy",
     "matplotlib",
-    "adif-io",
+    "adif-parser"
 ]
 
 [project.urls]
@@ -36,15 +36,17 @@ Repository = "https://github.com/0x9900/qsogrid"
 qsogrid = "qsogrid:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["qsogrid.py"]
+only-include = ["src"]
+sources = ["src"]
 
 [tool.hatch.version]
-path = "qsogrid.py"
+path = "src/qsogrid.py"
 
 [project.optional-dependencies]
 dev = [
     "build",
     "flake8",
+    "geo_ham",
     "isort",
     "mypy",
     "pre-commit",
