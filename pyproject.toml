@@ -26,6 +26,7 @@ dependencies = [
     "cartopy",
     "matplotlib",
     "adif-parser"
+    "adif-io",
 ]
 
 [project.urls]

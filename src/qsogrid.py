@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # vim:fenc=utf-8
 #
-# Copyright © 2025 fred <github-fred@hidzz.com>
+# Copyright © 2025-2026 fred <github-fred@hidzz.com>
 #
 # Distributed under terms of the BSD 3-Clause license.
 
@@ -11,7 +11,7 @@ Maidenhead Grid Square Visualization Tool
 Generates a map showing worked grid squares from ADIF ham radio logs.
 """
 
-__version__ = "0.1.7"
+__version__ = "0.1.8"
 
 import argparse
 import logging
@@ -163,15 +163,17 @@ class GridMapGenerator:
 
   def save(self, call: str, title: str, filename: str, dpi: int = 300) -> None:
     assert self.ax
-    year = datetime.now().year
+    today = datetime.now()
     # Set title
     self.ax.set_title(f'{call} - {title}', fontsize=16, weight='bold', pad=20)
 
     if self.fig is None:
       raise ValueError("No map created. Call create_base_map() first.")
 
-    self.fig.text(.13, .09, SIGNATURE.format(year, call), fontsize=8, color='gray')
+    self.fig.text(.13, .09, SIGNATURE.format(today.year, call), fontsize=8, color='gray')
     self.fig.text(.13, .11, 'Map source Natural Earth',  fontsize=8, color='gray')
+    self.fig.text(.78, .09, f'Generation date: {today.strftime("%Y-%m-%d")}',
+                  fontsize=8, color='gray')
     self.fig.savefig(filename, dpi=dpi, bbox_inches='tight', pad_inches=0.6)
     logger.info("Map saved as '%s'", filename)
 
