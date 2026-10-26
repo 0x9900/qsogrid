@@ -25,8 +25,9 @@ classifiers = [
 dependencies = [
     "cartopy",
     "matplotlib",
-    "adif-parser"
+    "adif-parser",
     "adif-io",
+    "geo_ham",
 ]
 
 [project.urls]

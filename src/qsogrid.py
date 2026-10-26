@@ -9,15 +9,17 @@
 Maidenhead Grid Square Visualization Tool
 
 Generates a map showing worked grid squares from ADIF ham radio logs.
+Each grid square is colored according to the number of contacts made in it.
 """
 
-__version__ = "0.1.8"
+__version__ = "0.1.10"
 
 import argparse
 import logging
+from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Set, Tuple
+from typing import Dict, List, Set, Tuple
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -26,6 +28,7 @@ import numpy as np
 from adif_parser import ParseADIF
 from geo_ham import Rectangle, grid2rectangle
 from matplotlib.collections import LineCollection
+from matplotlib.patches import Patch
 from shapely import box
 from shapely.ops import unary_union
 
@@ -41,6 +44,32 @@ GRID_LENGTH = 4  # 4-character grids
 
 TITLE = 'Worked Maidenhead Grid Squares'
 SIGNATURE = '(c) {} Fred W6BSD - MaidenHead Grid for {}'
+
+# 8 distinct colors, fewest to most contacts:
+# green, teal, blue, indigo, purple, magenta, orange, red
+COLORS = [
+  '#2ecc40', '#00b3a4', '#1e78ff', '#4b2fc9', '#9c27b0', '#ff2d95', '#ff7a00', '#d00000',
+]
+FILL_ALPHA = 0.9
+THRESHOLDS = [1, 2, 4, 6, 10, 14, 25]
+assert len(COLORS) == len(THRESHOLDS) + 1
+
+
+def color_index(count: int) -> int:
+  for idx, limit in enumerate(THRESHOLDS):
+    if count <= limit:
+      return idx
+  return len(COLORS) - 1
+
+
+def legend_labels() -> List[str]:
+  labels = []
+  low = 1
+  for limit in THRESHOLDS:
+    labels.append(str(low) if low == limit else f'{low}-{limit}')
+    low = limit + 1
+  labels.append(f'{low}+')
+  return labels
 
 
 class MaidenheadConverter:
@@ -143,23 +172,38 @@ class GridMapGenerator:
                         alpha=0.5, transform=ccrs.PlateCarree())
     self.ax.add_collection(lc)
 
-  def highlight_grids(self, grids: Set[str], color: str = '#880000') -> None:
+  def highlight_grids(self, grids: Dict[str, int]) -> None:
+    """Color each grid square according to its number of contacts."""
     assert self.ax
-    valid = [g for g in grids if MaidenheadConverter.validate(g)]
-    for g in grids - set(valid):
-      logger.warning("Invalid grid square '%s' skipped", g)
 
-    if not valid:
-      return
+    # Group the valid grids by color bin
+    bins: Dict[int, List[str]] = defaultdict(list)
+    for grid, count in grids.items():
+      if not MaidenheadConverter.validate(grid):
+        logger.warning("Invalid grid square '%s' skipped", grid)
+        continue
+      bins[color_index(count)].append(grid)
 
-    rects = [MaidenheadConverter.to_coordinates(g) for g in valid]
-    bounds = np.array([(r.lon_min, r.lat_min, r.lon_max, r.lat_max) for r in rects])
+    # One merged geometry per color bin
+    for idx, names in bins.items():
+      rects = [MaidenheadConverter.to_coordinates(g) for g in names]
+      bounds = np.array([(r.lon_min, r.lat_min, r.lon_max, r.lat_max) for r in rects])
+      geoms = box(bounds[:, 0], bounds[:, 1], bounds[:, 2], bounds[:, 3])
+      merged = unary_union(geoms)
+      self.ax.add_geometries(merged, crs=ccrs.PlateCarree(), facecolor=COLORS[idx],
+                             edgecolor=None, alpha=FILL_ALPHA, zorder=20)
 
-    geoms = box(bounds[:, 0], bounds[:, 1], bounds[:, 2], bounds[:, 3])
-    merged = unary_union(geoms)
+    self._draw_legend(set(bins))
 
-    self.ax.add_geometries(merged, crs=ccrs.PlateCarree(), facecolor=color,
-                           edgecolor=None, alpha=0.6, zorder=20)
+  def _draw_legend(self, used: Set[int]) -> None:
+    assert self.ax
+    labels = legend_labels()
+    handles = [Patch(facecolor=COLORS[i], edgecolor='gray', alpha=FILL_ALPHA, label=labels[i])
+               for i in range(len(COLORS)) if i in used]
+    if handles:
+      legend = self.ax.legend(handles=handles, title='QSOs per grid', loc='lower left',
+                              fontsize=9, title_fontsize=10, framealpha=0.9)
+      legend.set_zorder(30)
 
   def save(self, call: str, title: str, filename: str, dpi: int = 300) -> None:
     assert self.ax
@@ -178,7 +222,8 @@ class GridMapGenerator:
     logger.info("Map saved as '%s'", filename)
 
 
-def extract_grids_from_adif(filepath: Path) -> Set[str]:
+def extract_grids_from_adif(filepath: Path) -> Dict[str, int]:
+  """Return a mapping of 4-character grid square -> number of contacts."""
   try:
     with filepath.open('r', errors='replace') as fd:
       adif = ParseADIF(fd)
@@ -186,18 +231,19 @@ def extract_grids_from_adif(filepath: Path) -> Set[str]:
     logger.error(err)
     raise
 
-  grids = set()
+  grids: Counter = Counter()
   for qso in adif.contacts:
     if (grid := qso.get('GRIDSQUARE')) and isinstance(grid, str):
       # Extract first 4 characters
       grid = grid[:GRID_LENGTH].upper()
       if MaidenheadConverter.validate(grid):
-        grids.add(grid)
+        grids[grid] += 1
       else:
         logger.warning("Invalid grid square '%s' for %s skipped", grid, qso['CALL'])
 
-  logger.info("Extracted %d unique grid squares from %s", len(grids), filepath.name)
-  return grids
+  logger.info("Extracted %d unique grid squares (%d contacts) from %s",
+              len(grids), sum(grids.values()), filepath.name)
+  return dict(grids)
 
 
 def main():
@@ -219,14 +265,14 @@ def main():
   opts = parser.parse_args()
   call = opts.call.upper()
 
-  # Extract grids from ADIF
+  # Extract grids (with contact counts) from ADIF
   grids = extract_grids_from_adif(opts.adif_file)
 
   # Generate map
   generator = GridMapGenerator(figsize=(20, 10))
   generator.create_base_map(opts.longitude)
 
-  # Highlight worked grids
+  # Highlight worked grids, colored by number of contacts
   generator.highlight_grids(grids)
 
   # Save map
