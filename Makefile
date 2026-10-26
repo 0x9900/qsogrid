@@ -27,11 +27,11 @@ pre-commit:
 
 # Mypy: Run static type checking
 mypy:
-	mypy qsogrid.py add_grid.py
+	mypy src/qsogrid.py add_grid.py
 
 # Pylint: Run code linting
 pylint:
-	-pylint qsogrid.py add_grid.py
+	-pylint src/qsogrid.py add_grid.py
 
 # Build: Build the Python package
 build: clean
